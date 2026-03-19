@@ -1,46 +1,46 @@
-import json
 import time
+import json
 import logging
 import azure.functions as func
 
-# Try imports inside the handler so we can show import errors in the response
+from api.shared.energy import measure_energy_usage
+from api.shared.carbon import calculate_carbon
+from api.shared.run_model import run_local_model
+
 def main(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('CLO inference request received.')
+
     try:
-        logging.info("CLO /infer invoked (debug mode)")
+        body = req.get_json()
+        prompt = body.get("prompt", "")
+        region = body.get("region", "us-east")
+        model = body.get("model", "phi3:mini")
 
-        # Attempt imports (common failure point)
-        try:
-            from api.shared.energy import measure_energy_usage
-            from api.shared.carbon import calculate_carbon
-        except Exception as e:
-            return func.HttpResponse(
-                json.dumps({"ok": False, "where": "imports", "error": str(e)}),
-                status_code=500, mimetype="application/json"
-            )
-
-        # Ignore body, just run the demo
+        # Run model and measure time
         start = time.time()
-        time.sleep(1.0)
-        duration = time.time() - start
+        output = run_local_model(prompt, model)
+        end = time.time()
 
-        model_name = "phi3:mini"
-        region = "us-east"
-        energy_kwh = measure_energy_usage(model_name, duration)
-        carbon_kg = calculate_carbon(energy_kwh, region=region)
+        duration = end - start
+        energy_kwh = measure_energy_usage(model, duration)
+        carbon_kg = calculate_carbon(energy_kwh)
 
         result = {
             "ok": True,
-            "model": model_name,
+            "model": model,
             "duration_sec": round(duration, 2),
             "energy_kwh": energy_kwh,
             "carbon_kg": carbon_kg,
-            "region": region
+            "region": region,
+            "output": output
         }
-        return func.HttpResponse(json.dumps(result), status_code=200, mimetype="application/json")
+
+        return func.HttpResponse(
+            body=json.dumps(result, indent=2),
+            status_code=200,
+            mimetype="application/json"
+        )
 
     except Exception as e:
-        # Catch any other runtime errors and show them
-        return func.HttpResponse(
-            json.dumps({"ok": False, "where": "runtime", "error": str(e)}),
-            status_code=500, mimetype="application/json"
-        )
+        error = {"ok": False, "error": str(e)}
+        return func.HttpResponse(json.dumps(error), status_code=500)

@@ -1,18 +1,44 @@
 {
-    "IsEncrypted": false,
-    "Values": {
-      "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-      "FUNCTIONS_WORKER_RUNTIME": "python",
-      "AZURE_OPENAI_ENDPOINT": "https://<your-resource>.openai.azure.com/",
-      "AZURE_OPENAI_API_KEY": "<key>",
-      "DEPLOYMENT_SMALL": "gpt-4o-mini",
-      "DEPLOYMENT_LARGE": "gpt-4o",
-      "QUEUE_NAME": "clo-deferred",
-      "TABLE_CONN": "UseDevelopmentStorage=true",
-      "TABLE_NAME": "CLORequests",
-      "DEFAULT_REGION": "eastus",
-      "CARBON_GREEN_THRESHOLD": "350",
-      "CARBON_GRAY_THRESHOLD": "550"
-    }
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+
+    "_comment_provider": "Set CLO_PROVIDER to: ollama, anthropic, openai",
+
+    "_comment_ollama": "--- Local development (Ollama) ---",
+    "CLO_PROVIDER": "ollama",
+    "CLO_MODEL_SMALL": "phi3:mini",
+    "CLO_MODEL_MID": "mistral",
+    "CLO_MODEL_LARGE": "phi3:large",
+
+    "_comment_anthropic": "--- Anthropic example ---",
+    "_CLO_PROVIDER": "anthropic",
+    "_CLO_MODEL_SMALL": "claude-haiku-4.5",
+    "_CLO_MODEL_MID": "claude-sonnet-4.6",
+    "_CLO_MODEL_LARGE": "claude-opus-4.6",
+    "_ANTHROPIC_API_KEY": "<your-anthropic-key>",
+
+    "_comment_openai": "--- OpenAI example ---",
+    "__CLO_PROVIDER": "openai",
+    "__CLO_MODEL_SMALL": "gpt-4o-mini",
+    "__CLO_MODEL_MID": "gpt-4o",
+    "__CLO_MODEL_LARGE": "o1",
+    "__OPENAI_API_KEY": "<your-openai-key>",
+
+    "CLO_WATTS_SMALL": "50",
+    "CLO_WATTS_MID": "150",
+    "CLO_WATTS_LARGE": "300",
+    "CARBON_GREEN_THRESHOLD_KG": "0.4",
+
+    "QUEUE_NAME": "clo-deferred",
+    "TABLE_CONN": "UseDevelopmentStorage=true",
+    "TABLE_NAME": "CLORequests",
+    "DEFAULT_REGION": "eastus",
+    "CARBON_GREEN_THRESHOLD": "350",
+    "CARBON_GRAY_THRESHOLD": "550"
+  },
+  "Host": {
+    "CORS": "*"
   }
-  
+}
