@@ -3,9 +3,12 @@ import json
 import logging
 import azure.functions as func
 
-from api.shared.energy import measure_energy_usage
-from api.shared.carbon import calculate_carbon
-from api.shared.run_model import run_local_model
+from api.shared.energy import track_inference_energy
+from api.shared.carbon import calculate_carbon, get_regional_intensity_if_available
+from api.shared.run_model import run_model
+from api.shared.decision import choose_model
+
+MAX_PROMPT_LENGTH = 10000  # character cap to prevent abuse
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('CLO inference request received.')
@@ -13,17 +16,43 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
         body = req.get_json()
         prompt = body.get("prompt", "")
-        region = body.get("region", "us-east")
-        model = body.get("model", "phi3:mini")
 
-        # Run model and measure time
+        # --- Input validation ---
+        if not prompt or not prompt.strip():
+            return func.HttpResponse(
+                json.dumps({"ok": False, "error": "Prompt is required."}),
+                status_code=400,
+                mimetype="application/json"
+            )
+
+        if len(prompt) > MAX_PROMPT_LENGTH:
+            return func.HttpResponse(
+                json.dumps({"ok": False, "error": f"Prompt exceeds max length of {MAX_PROMPT_LENGTH} characters."}),
+                status_code=400,
+                mimetype="application/json"
+            )
+
+        # --- CLO decides region and model (not the user) ---
+        # TODO: Replace with live grid intensity lookup per region
+        region, intensity = _pick_cleanest_region()
+
+        # TODO: Replace with real prompt complexity analysis
+        prompt_complexity = "low"  # placeholder
+        model = choose_model(prompt_complexity, intensity)
+
+        # --- Run inference and measure ---
         start = time.time()
-        output = run_local_model(prompt, model)
-        end = time.time()
+        output, energy_kwh = track_inference_energy(lambda: run_model(prompt, model), model)
+        duration = time.time() - start
 
-        duration = end - start
-        energy_kwh = measure_energy_usage(model, duration)
-        carbon_kg = calculate_carbon(energy_kwh)
+        if not output:
+            logging.error(f"Model {model} returned empty output for prompt.")
+            return func.HttpResponse(
+                json.dumps({"ok": False, "error": "Model failed to generate a response."}),
+                status_code=502,
+                mimetype="application/json"
+            )
+        carbon_kg = calculate_carbon(energy_kwh, region=region)
 
         result = {
             "ok": True,
@@ -36,11 +65,33 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         }
 
         return func.HttpResponse(
-            body=json.dumps(result, indent=2),
+            json.dumps(result),
             status_code=200,
             mimetype="application/json"
         )
 
+    except ValueError:
+        return func.HttpResponse(
+            json.dumps({"ok": False, "error": "Invalid request body. Expected JSON."}),
+            status_code=400,
+            mimetype="application/json"
+        )
     except Exception as e:
-        error = {"ok": False, "error": str(e)}
-        return func.HttpResponse(json.dumps(error), status_code=500)
+        logging.error(f"CLO inference failed: {e}", exc_info=True)
+        return func.HttpResponse(
+            json.dumps({"ok": False, "error": "Internal server error."}),
+            status_code=500,
+            mimetype="application/json"
+        )
+
+
+def _pick_cleanest_region() -> tuple[str, float]:
+    """
+    Pick the region with the lowest carbon intensity right now.
+    Returns (region_name, intensity_value).
+    TODO: Replace with live API calls to WattTime or ElectricityMaps.
+    """
+    regions = ["us-east", "us-west", "eu-central", "norway", "india", "china"]
+    scored = [(r, get_regional_intensity_if_available(r)) for r in regions]
+    best_region, best_intensity = min(scored, key=lambda x: x[1])
+    return best_region, best_intensity
