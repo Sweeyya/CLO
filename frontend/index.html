@@ -3,95 +3,438 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CLO - Carbon Aware AI</title>
+  <title>CLO — Carbon-Lite Orchestration</title>
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: "Inter", sans-serif;
-      background: radial-gradient(circle at top, #0a192f, #000);
-      color: #f0f0f0;
-      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #fff;
+      color: #111;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top bar ── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0;
+    }
+    #topbar .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #8b5cf6;
+      flex-shrink: 0;
+    }
+    #topbar .title    { font-weight: 700; font-size: 16px; }
+    #topbar .subtitle { font-size: 13px; color: #6b7280; }
+    #topbar .eco-badge {
+      margin-left: auto;
+      background: #ede9fe;
+      color: #6d28d9;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    /* ── Message list ── */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Empty state ── */
+    #empty-state {
+      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
+      gap: 6px;
+      pointer-events: none;
     }
+    #empty-state .main { font-size: 16px; font-weight: 500; color: #6b7280; }
+    #empty-state .sub  { font-size: 13px; color: #9ca3af; }
 
-    h1 {
-      margin-bottom: 8px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      font-size: 28px;
-    }
+    /* ── Message rows ── */
+    .row { display: flex; flex-direction: column; }
+    .row.user      { align-items: flex-end; }
+    .row.assistant { align-items: flex-start; }
 
-    p.subtitle {
-      color: #91ddff;
-      margin-bottom: 32px;
-      font-size: 16px;
-    }
-
-    .container {
-      background: rgba(255, 255, 255, 0.05);
+    .bubble {
+      max-width: min(72%, 640px);
+      padding: 10px 14px;
       border-radius: 16px;
-      padding: 24px 32px;
-      width: 90%;
-      max-width: 600px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-    }
-
-    textarea {
-      width: 100%;
-      height: 80px;
-      border-radius: 8px;
-      border: none;
-      padding: 12px;
-      font-size: 15px;
-      margin-bottom: 12px;
-      resize: none;
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-    }
-
-    button {
-      background-color: #91ddff;
-      color: #000;
-      border: none;
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    button:hover {
-      background-color: #c8f7ff;
-    }
-
-    .result {
-      margin-top: 20px;
-      background: rgba(255, 255, 255, 0.08);
-      padding: 16px;
-      border-radius: 8px;
       font-size: 14px;
+      line-height: 1.6;
       white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .bubble.user      { background: #f3f4f6; border-bottom-right-radius: 4px; }
+    .bubble.assistant { background: #fff; border: 1px solid #e5e7eb; border-bottom-left-radius: 4px; }
+    .bubble.error     { color: #dc2626; border-color: #fecaca; background: #fff5f5; }
+
+    /* ── Meta tags ── */
+    .meta-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 6px;
+      max-width: min(72%, 640px);
+    }
+    .tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .tag.model    { background: #ede9fe; color: #6d28d9; }
+    .tag.region   { background: #e0f2fe; color: #0369a1; }
+    .tag.savings  { background: #dcfce7; color: #15803d; }
+    .tag.duration { background: #f3f4f6; color: #4b5563; }
+
+    /* ── Detail row ── */
+    .detail-row {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #9ca3af;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      max-width: min(72%, 640px);
+    }
+    .detail-row span b { color: #6b7280; font-weight: 600; }
+
+    /* ── Loading dots ── */
+    .loading-dots { display: flex; gap: 5px; padding: 12px 14px; }
+    .loading-dots span {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #d1d5db;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); background: #d1d5db; }
+      40%           { transform: translateY(-6px); background: #8b5cf6; }
     }
 
-    .loading {
-      font-style: italic;
-      color: #aaa;
+    /* ── Input area ── */
+    #input-area {
+      border-top: 1px solid #e5e7eb;
+      padding: 14px 20px 18px;
+      flex-shrink: 0;
     }
+    #input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: #f9fafb;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 8px 10px 8px 14px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    #input-row:focus-within {
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 3px #ede9fe;
+    }
+    #prompt {
+      flex: 1;
+      border: none;
+      background: transparent;
+      resize: none;
+      font: inherit;
+      font-size: 14px;
+      line-height: 1.5;
+      max-height: 160px;
+      outline: none;
+      color: #111;
+    }
+    #prompt::placeholder { color: #9ca3af; }
+
+    #complexity-indicator {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+      align-self: flex-end;
+      margin-bottom: 2px;
+      transition: background 0.15s, color 0.15s;
+    }
+    #complexity-indicator.empty  { background: #f3f4f6; color: #9ca3af; }
+    #complexity-indicator.low    { background: #d1fae5; color: #059669; }
+    #complexity-indicator.medium { background: #fef3c7; color: #d97706; }
+    #complexity-indicator.high   { background: #fee2e2; color: #dc2626; }
+
+    #send-btn {
+      background: #8b5cf6;
+      border: none;
+      color: #fff;
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      align-self: flex-end;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    #send-btn:hover:not(:disabled) { background: #7c3aed; }
+    #send-btn:disabled { opacity: 0.4; cursor: default; }
+    #send-btn svg { width: 16px; height: 16px; }
+
+    #hint { font-size: 11px; color: #9ca3af; margin-top: 7px; text-align: center; }
   </style>
 </head>
 <body>
-  <h1>CLO</h1>
-  <p class="subtitle">Carbon-Aware AI Inference Tracker</p>
 
-  <div class="container">
-    <textarea id="prompt" placeholder="Type your AI prompt here..."></textarea>
-    <button id="run">Run Inference</button>
-    <div id="result" class="result"></div>
+<div id="topbar">
+  <div class="dot"></div>
+  <span class="title">CLO</span>
+  <span class="subtitle">Carbon-Lite Orchestration</span>
+  <span class="eco-badge">Eco Mode On</span>
+</div>
+
+<div id="messages">
+  <div id="empty-state">
+    <span class="main">Send a message</span>
+    <span class="sub">CLO will route it to the most carbon-efficient model</span>
   </div>
+</div>
 
-  <script src="script.js"></script>
+<div id="input-area">
+  <div id="input-row">
+    <textarea id="prompt" rows="1" placeholder="Message CLO..."></textarea>
+    <span id="complexity-indicator" class="empty">—</span>
+    <button id="send-btn" disabled aria-label="Send">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="14" x2="8" y2="2"/>
+        <polyline points="3,7 8,2 13,7"/>
+      </svg>
+    </button>
+  </div>
+  <p id="hint">CLO picks the model and region automatically</p>
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────────────
+  const API_URL    = "http://localhost:7071/api/infer";
+  const WATTS_LARGE = 300;
+
+  // ── Complexity signals ───────────────────────────────────────────────────────
+  const HIGH_SIGNALS = [
+    "write a","write an","write me","draft a","compose a",
+    "create a","create an","build a","implement","design a",
+    "develop a","generate a","refactor","debug","fix the",
+    "optimize","help me write","help me create","can you write","please write",
+  ];
+  const MEDIUM_SIGNALS = [
+    "explain","describe","summarize","compare","contrast",
+    "why does","why is","how does","pros and cons","step by step",
+  ];
+  const STRUCTURED_KEYWORDS = ["json","xml","csv","table","schema"];
+
+  // ── Complexity classifier ────────────────────────────────────────────────────
+  function classifyComplexity(text) {
+    const lower = text.toLowerCase();
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    const hasCodeBlock   = text.includes("```") || (text.match(/`/g) || []).length >= 2;
+    const hasStructured  = STRUCTURED_KEYWORDS.some(k => lower.includes(k));
+    const highMatch      = HIGH_SIGNALS.some(s => lower.includes(s));
+
+    if (hasCodeBlock || hasStructured || words > 75 || highMatch) return "high";
+    if (words >= 15  || MEDIUM_SIGNALS.some(s => lower.includes(s))) return "medium";
+    return "low";
+  }
+
+  // ── DOM refs ─────────────────────────────────────────────────────────────────
+  const messagesEl    = document.getElementById("messages");
+  const promptEl      = document.getElementById("prompt");
+  const sendBtn       = document.getElementById("send-btn");
+  const complexityEl  = document.getElementById("complexity-indicator");
+  let   emptyState    = document.getElementById("empty-state");
+
+  // ── Textarea: auto-resize + complexity indicator ─────────────────────────────
+  promptEl.addEventListener("input", () => {
+    promptEl.style.height = "auto";
+    promptEl.style.height = promptEl.scrollHeight + "px";
+
+    const val = promptEl.value.trim();
+    sendBtn.disabled = !val;
+
+    if (!val) {
+      complexityEl.textContent = "—";
+      complexityEl.className   = "empty";
+    } else {
+      const level = classifyComplexity(val);
+      complexityEl.textContent = level;
+      complexityEl.className   = level;
+    }
+  });
+
+  // ── Keyboard: Enter sends, Shift+Enter inserts newline ───────────────────────
+  promptEl.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); trySend(); }
+  });
+  sendBtn.addEventListener("click", trySend);
+
+  function trySend() {
+    const text = promptEl.value.trim();
+    if (!text) return;
+    promptEl.value           = "";
+    promptEl.style.height    = "auto";
+    sendBtn.disabled         = true;
+    complexityEl.textContent = "—";
+    complexityEl.className   = "empty";
+    sendMessage(text);
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function hideEmptyState() {
+    if (emptyState) { emptyState.remove(); emptyState = null; }
+  }
+
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addUserBubble(text) {
+    hideEmptyState();
+    const row    = document.createElement("div");
+    row.className = "row user";
+    const bubble = document.createElement("div");
+    bubble.className = "bubble user";
+    bubble.textContent = text;          // textContent — XSS safe
+    row.appendChild(bubble);
+    messagesEl.appendChild(row);
+    scrollToBottom();
+    return row;
+  }
+
+  function addLoadingRow() {
+    const row  = document.createElement("div");
+    row.className = "row assistant";
+    const dots = document.createElement("div");
+    dots.className = "loading-dots";
+    dots.innerHTML = "<span></span><span></span><span></span>";
+    row.appendChild(dots);
+    messagesEl.appendChild(row);
+    scrollToBottom();
+    return row;
+  }
+
+  function replaceWithResponse(row, data) {
+    row.innerHTML = "";
+
+    // Tags
+    const tags = document.createElement("div");
+    tags.className = "meta-tags";
+
+    const modelTag = document.createElement("span");
+    modelTag.className   = "tag model";
+    modelTag.textContent = data.model;
+    tags.appendChild(modelTag);
+
+    const regionTag = document.createElement("span");
+    regionTag.className   = "tag region";
+    regionTag.textContent = data.region;
+    tags.appendChild(regionTag);
+
+    const durTag = document.createElement("span");
+    durTag.className   = "tag duration";
+    durTag.textContent = data.duration_sec + "s";
+    tags.appendChild(durTag);
+
+    // Carbon savings vs. large-model baseline
+    const baselineEnergy = (WATTS_LARGE * data.duration_sec / 3600) / 1000;
+    if (data.energy_kwh < baselineEnergy && baselineEnergy > 0) {
+      const savedPct = Math.round((1 - data.energy_kwh / baselineEnergy) * 100);
+      if (savedPct > 0) {
+        const savTag = document.createElement("span");
+        savTag.className   = "tag savings";
+        savTag.textContent = savedPct + "% carbon saved";
+        tags.appendChild(savTag);
+      }
+    }
+
+    row.appendChild(tags);
+
+    // Output bubble
+    const bubble = document.createElement("div");
+    bubble.className   = "bubble assistant";
+    bubble.textContent = data.output;   // textContent — XSS safe
+    row.appendChild(bubble);
+
+    // Detail row
+    const detail = document.createElement("div");
+    detail.className = "detail-row";
+    // Use textContent per span to stay XSS-safe for dynamic values
+    const fields = [
+      ["Energy",   data.energy_kwh   + " kWh"],
+      ["Carbon",   data.carbon_kg    + " kg CO\u2082"],
+      ["Water",    data.water_liters + " L"],
+      ["Baseline", baselineEnergy.toFixed(6) + " kWh"],
+    ];
+    fields.forEach(([label, value]) => {
+      const s = document.createElement("span");
+      const b = document.createElement("b");
+      b.textContent = label + " ";
+      s.appendChild(b);
+      s.appendChild(document.createTextNode(value));
+      detail.appendChild(s);
+    });
+
+    row.appendChild(detail);
+    scrollToBottom();
+  }
+
+  function replaceWithError(row, message) {
+    row.innerHTML = "";
+    const bubble = document.createElement("div");
+    bubble.className   = "bubble assistant error";
+    bubble.textContent = message;       // textContent — XSS safe
+    row.appendChild(bubble);
+    scrollToBottom();
+  }
+
+  // ── API call ─────────────────────────────────────────────────────────────────
+  async function sendMessage(text) {
+    addUserBubble(text);
+    const loadingRow = addLoadingRow();
+
+    try {
+      const res  = await fetch(API_URL, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ prompt: text }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        replaceWithError(loadingRow, data.error || "Something went wrong. Please try again.");
+        return;
+      }
+
+      replaceWithResponse(loadingRow, data);
+    } catch (_) {
+      replaceWithError(loadingRow, "Could not reach CLO. Is the API server running?");
+    }
+  }
+</script>
 </body>
 </html>

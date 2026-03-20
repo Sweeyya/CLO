@@ -7,6 +7,8 @@ from api.shared.energy import track_inference_energy
 from api.shared.carbon import calculate_carbon, get_regional_intensity_if_available
 from api.shared.run_model import run_model
 from api.shared.decision import choose_model
+from api.shared.complexity import classify_complexity
+from api.shared.water import calculate_water
 
 MAX_PROMPT_LENGTH = 10000  # character cap to prevent abuse
 
@@ -36,8 +38,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         # TODO: Replace with live grid intensity lookup per region
         region, intensity = _pick_cleanest_region()
 
-        # TODO: Replace with real prompt complexity analysis
-        prompt_complexity = "low"  # placeholder
+        prompt_complexity = classify_complexity(prompt)
         model = choose_model(prompt_complexity, intensity)
 
         # --- Run inference and measure ---
@@ -53,6 +54,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         carbon_kg = calculate_carbon(energy_kwh, region=region)
+        water_liters = calculate_water(energy_kwh, region=region)
 
         result = {
             "ok": True,
@@ -60,6 +62,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             "duration_sec": round(duration, 2),
             "energy_kwh": energy_kwh,
             "carbon_kg": carbon_kg,
+            "water_liters": water_liters,
             "region": region,
             "output": output
         }
